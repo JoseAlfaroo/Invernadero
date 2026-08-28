@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invernadero - Simulación</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: sans-serif;
+    }
+
+    #lienzo-simulacion {
+      position: relative;
+      width: 600px;
+      height: 450px;
+      background-color: #fffbd6;
+      border: 4px solid #37474f;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    }
+
+    .obstaculo {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 1px 1px 2px #000;
+      user-select: none;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .cultivo {
+      background-color: #2e7d32;
+      border: 2px solid #4caf50;
+      /* background-image: url('texturas/cultivo.png'); */
+    }
+
+    .bombaAgua {
+      background-color: #0288d1;
+      border: 2px solid #29b6f6;
+      /* background-image: url('texturas/bomba.png'); */
+    }
+
+    .ventiladores {
+      background-color: #78909c;
+      border: 2px solid #b0bec5;
+      /* background-image: url('texturas/ventilador.png'); */
+    }
+
+    .led {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      top: 15px;
+      right: 15px;
+      background-color: #00e676;
+      /* background-image: url('texturas/led.png'); */
+    }
+
+    .personaje {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      background-color: #ff9800;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.75rem;
+      color: #fff;
+      z-index: 10;
+      /* background-image: url('texturas/personaje.png'); */
+    }
+
+    .instrucciones {
+      margin-top: 15px;
+      color: #b0bec5;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="lienzo-simulacion">
+    <div class="led" title="LED Indicador"></div>
+    
+    <div class="obstaculo cultivo" style="top: 40px; left: 40px; width: 120px; height: 140px;">Cultivo A</div>
+    <div class="obstaculo cultivo" style="top: 250px; left: 40px; width: 120px; height: 140px;">Cultivo B</div>
+    <div class="obstaculo bombaAgua" style="top: 40px; left: 420px; width: 120px; height: 70px;">Bomba Agua</div>
+    <div class="obstaculo ventiladores" style="top: 160px; left: 420px; width: 120px; height: 70px;">Ventilador</div>
+    <div class="obstaculo cultivo" style="top: 270px; left: 420px; width: 120px; height: 120px;">Cultivo C</div>
+
+    <div id="personaje" class="personaje">OP</div>
+  </div>
+
+  <p style="display: none;" class="instrucciones">Usa las teclas <strong>W, A, S, D</strong> o las <strong>Flechas</strong> para mover al personaje.</p>
+
+  <script src="script.js"></script>
+</body>
+</html>
