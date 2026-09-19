@@ -21,7 +21,7 @@
 
 /* ===== Panel lateral (Zona 2 + Zona 3) ===== */
 .panel {
-  width: 360px;
+  width: 400px;
   flex-shrink: 0;
   height: 100vh;
   overflow-y: auto;
@@ -31,6 +31,8 @@
   color: #d7e3e8;
   border-left: 2px solid #24343d;
   font-family: system-ui, 'Segoe UI', sans-serif;
+  /* relativo: el 145% de :root se hereda como 26px fijos y estira cada fila */
+  line-height: 1.35;
 }
 
 .panel-titulo {
@@ -39,7 +41,7 @@
   color: #7ee0b8;
 }
 .panel-sub {
-  margin: 2px 0 14px;
+  margin: 2px 0 10px;
   font-size: 12px;
   color: #8aa0a9;
 }
@@ -62,6 +64,9 @@
 /* ===== Controles de entrada ===== */
 .control {
   margin-bottom: 12px;
+}
+.control:last-child {
+  margin-bottom: 0;
 }
 .control label {
   display: block;
@@ -98,7 +103,7 @@
 .arq-fila {
   display: grid;
   grid-template-columns: 1.4fr 0.5fr 1.3fr 0.7fr;
-  gap: 6px;
+  gap: 12px;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11px;
   padding: 3px 0;
@@ -129,41 +134,116 @@
 .mini-titulo {
   font-size: 11px;
   color: #8aa0a9;
-  margin: 10px 0 4px;
+  margin: 8px 0 3px;
   text-transform: uppercase;
 }
 
-/* ===== Estado del sistema ===== */
+/* ===== ALU: banderas obtenidas del préstamo de cada resta ===== */
+.alu {
+  padding: 3px 0;
+  border-bottom: 1px solid #1b2930;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.alu-bandera {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #cbd8dd;
+}
+.alu-resta {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #8aa0a9;
+}
+.bit-1 {
+  color: #7ee0b8;
+}
+.bit-0 {
+  color: #6b7d84;
+}
+
+/* ===== Registro REG_ACT bit a bit ===== */
+.reg {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  margin: 6px 0 4px;
+  border: 1px solid #24343d;
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: center;
+}
+.reg-bit {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+  border-left: 1px solid #1b2930;
+}
+.reg-bit:first-child {
+  border-left: none;
+}
+/* separadores entre grupos: reservados | severidad | actuadores */
+.reg-bit:nth-child(4),
+.reg-bit:nth-child(6) {
+  border-left: 2px solid #3a5260;
+}
+.reg-bit b {
+  font-size: 15px;
+  color: #6b7d84;
+}
+.reg-uno b {
+  color: #7ee0b8;
+}
+.reg-indice {
+  font-size: 9px;
+  color: #6b7d84;
+}
+.reg-nombre {
+  font-size: 8px;
+  color: #8aa0a9;
+}
+.reg-resv {
+  opacity: 0.5;
+}
+.reg-sev {
+  background: #131f25;
+}
+.reg-cambio {
+  background: rgba(241, 196, 15, 0.2);
+}
+.sev {
+  margin: 4px 0 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  color: #8aa0a9;
+}
+.sev b {
+  color: #7ee0b8;
+}
+
+/* ===== Estado del sistema (el color llega en la variable --led) ===== */
 .estado {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px;
+  gap: 4px;
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  color: var(--led);
+  border: 1px solid var(--led);
+  background: color-mix(in srgb, var(--led) 14%, #0e161b);
 }
 .estado b {
   font-size: 16px;
   letter-spacing: 1px;
+  text-transform: uppercase;
 }
 .estado span {
-  font-size: 11px;
-  opacity: 0.85;
-}
-.estado-normal {
-  background: #133527;
-  color: #2ecc71;
-  border: 1px solid #2ecc71;
-}
-.estado-advertencia {
-  background: #3a3113;
-  color: #f1c40f;
-  border: 1px solid #f1c40f;
+  font-size: 12px;
+  color: #d7e3e8;
 }
 .estado-critico {
-  background: #3a1713;
-  color: #e74c3c;
-  border: 1px solid #e74c3c;
   animation: latido 0.8s infinite;
 }
 @keyframes latido {
@@ -176,13 +256,14 @@
 .chips {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 .chip {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
   border-radius: 6px;
   font-size: 11px;
   background: #0b1216;
@@ -197,17 +278,25 @@
 .chip-off b {
   color: #6b7d84;
 }
-.led-1 {
-  color: #2ecc71;
+.chip .led {
+  color: var(--led);
 }
-.led-2 {
-  color: #f1c40f;
-}
-.led-3 {
-  color: #e74c3c;
+.led-punto {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--led);
+  box-shadow: 0 0 5px var(--led);
 }
 
 /* ===== Tabla de casos de prueba ===== */
+.nota {
+  margin: -4px 0 8px;
+  font-size: 11px;
+  color: #8aa0a9;
+}
 .tabla {
   width: 100%;
   border-collapse: collapse;
@@ -223,13 +312,39 @@
 .tabla th {
   color: #8aa0a9;
 }
-.tabla tr.ok,
-.tabla tr.ok td {
+.tabla td {
+  color: #cbd8dd;
+}
+.tabla tbody tr {
+  cursor: pointer;
+}
+.tabla tbody tr:hover td {
+  background: #16232a;
+}
+.tabla tr.activo td {
+  background: #1c3a2c;
+}
+.tabla td.celda-led {
+  text-align: left;
+  white-space: nowrap;
+}
+.tabla tr.ok td.marca {
   color: #2ecc71;
 }
-.tabla tr.fail,
 .tabla tr.fail td {
   color: #e74c3c;
+}
+.caso {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.caso:focus-visible {
+  outline: 1px solid #7ee0b8;
+  outline-offset: 2px;
 }
 
 /* ===== Responsivo simple: panel abajo en pantallas angostas ===== */

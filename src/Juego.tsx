@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Salidas } from './logica';
-import { convertirABinario8Bits, convertirAHexadecimal } from './logica';
+import { LED, NOMBRE_ESTADO, convertirABinario8Bits, convertirAHexadecimal } from './logica';
 import { caminoRR, hexA } from './juego/dibujo';
 import { crearEscenario } from './juego/objetos';
 import { crearJugador, esTeclaDeMovimiento, moverJugador, posicionesInvernaderos } from './juego/colision';
@@ -16,12 +16,6 @@ type Props = {
 };
 
 const USAR_IMAGEN_MAPA = false;
-
-const COLOR_LED: Record<1 | 2 | 3, string> = {
-  1: '#2ecc71', // verde
-  2: '#f1c40f', // amarillo
-  3: '#e74c3c', // rojo
-};
 
 export default function Juego({ humedad, temperatura, salidas }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -173,12 +167,13 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
 
       /* ===== ACTUADORES ===== */
 
-      // LED de estado (con resplandor; parpadea en rojo)
+      // LED de estado (con resplandor; parpadea en estado crítico)
       const lx = x + 6;
       const ly = y + 22;
-      const parpadeo = s.estadoLuzLED === 3 && frame % 40 < 20;
+      const colorLED = LED[s.estado].color;
+      const parpadeo = s.estado === 'CRITICO' && frame % 40 < 20;
       const glow = ctx!.createRadialGradient(lx + 8, ly + 8, 0, lx + 8, ly + 8, 22);
-      glow.addColorStop(0, hexA(COLOR_LED[s.estadoLuzLED], parpadeo ? 0.05 : 0.5));
+      glow.addColorStop(0, hexA(colorLED, parpadeo ? 0.05 : 0.5));
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx!.fillStyle = glow;
       ctx!.beginPath();
@@ -187,7 +182,7 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
       ctx!.fillStyle = '#22333b';
       caminoRR(ctx!, lx - 2, ly - 2, 20, 20, 3);
       ctx!.fill();
-      ctx!.fillStyle = parpadeo ? '#5c1712' : COLOR_LED[s.estadoLuzLED];
+      ctx!.fillStyle = parpadeo ? '#5c1712' : colorLED;
       caminoRR(ctx!, lx, ly, 16, 16, 2);
       ctx!.fill();
 
@@ -291,8 +286,8 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
         ctx!.font = '11px ui-monospace, Consolas, monospace';
         ctx!.fillText(`TEMP ${temp}C  ${convertirABinario8Bits(temp)}  ${convertirAHexadecimal(temp)}`, bx + 10, by + 18);
         ctx!.fillText(`HUM  ${hum}%  ${convertirABinario8Bits(hum)}  ${convertirAHexadecimal(hum)}`, bx + 10, by + 34);
-        ctx!.fillStyle = COLOR_LED[s.estadoLuzLED];
-        ctx!.fillText(`● ${s.estado}`, bx + 10, by + 52);
+        ctx!.fillStyle = colorLED;
+        ctx!.fillText(`● ${NOMBRE_ESTADO[s.estado]}`, bx + 10, by + 52);
       }
     }
 

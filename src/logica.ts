@@ -2,110 +2,169 @@
    LÓGICA DEL INVERNADERO INTELIGENTE
    Modelo de Arquitectura de Computadoras:
    ENTRADA  ->  PROCESAMIENTO  ->  MEMORIA  ->  SALIDA
-   Todo se maneja con números ENTEROS para que las conversiones
-   (decimal / binario / hexadecimal) y las reglas sean fáciles de leer.
+   Todos los datos son enteros sin signo de 8 bits (0..255): no se usa punto
+   flotante y las conversiones de base se hacen con desplazamientos, máscaras
+   y divisiones enteras, sin librerías.
    ========================================================================= */
 
-/* ---------- MEMORIA: parámetros constantes (no cambian nunca) ---------- */
-export const UMBRAL_HUMEDAD_BAJA = 30; // % mínimo aceptable de humedad
-export const UMBRAL_TEMP_CRITICA = 35; // °C máximo aceptable de temperatura
+export type Bit = 0 | 1;
+
+/* ---------- ENTRADA: sensores simulados -------------------------------- */
+export type Entradas = {
+  humedadSuelo: number; // VAR_HUM, 0..100 %
+  temperaturaAmbiente: number; // VAR_TEMP, 0..50 °C
+};
+
+/* ---------- MEMORIA persistente (ROM/Flash): umbrales de control -------- */
+// La lógica de decisión recibe los umbrales desde aquí y no los tiene escritos
+// en sus comparaciones: recalibrar un sensor solo exige cambiar estos valores.
+export type ParametrosControl = {
+  UMBRAL_HUM: number; // humedad mínima del suelo (%)
+  UMBRAL_TEMP: number; // temperatura máxima del aire (°C)
+};
+
+export const MEMORIA_PERSISTENTE: ParametrosControl = {
+  UMBRAL_HUM: 30, // 0001 1110 = 0x1E
+  UMBRAL_TEMP: 35, // 0010 0011 = 0x23
+};
+
+/* ---------- MEMORIA volátil (RAM): mapa de bits de REG_ACT -------------- */
+//  bit   7     6     5   |   4      3   |    2        1        0
+//        RESERVADOS      |  SEV1   SEV0 |  ALARMA   VENTIL   BOMBA
+export const MASK_BOMBA = 0b0000_0001;
+export const MASK_VENTIL = 0b0000_0010;
+export const MASK_ALARMA = 0b0000_0100;
+export const MASK_SEV = 0b0001_1000;
+export const SHIFT_SEV = 3;
+
+/* ---------- Estados: el índice de cada uno ES su código S₁S₀ ------------ */
+export const ESTADOS = ['NORMAL', 'ADV_HIDRICA', 'ADV_TERMICA', 'CRITICO'] as const;
+export type Estado = (typeof ESTADOS)[number];
+export type Severidad = 0 | 1 | 2 | 3; // 00 · 01 · 10 · 11
+
+export const NOMBRE_ESTADO: Record<Estado, string> = {
+  NORMAL: 'Normal',
+  ADV_HIDRICA: 'Advertencia Hídrica',
+  ADV_TERMICA: 'Advertencia Térmica',
+  CRITICO: 'Estado Crítico',
+};
+
+export const LED: Record<Estado, { nombre: string; color: string }> = {
+  NORMAL: { nombre: 'Verde', color: '#2ecc71' },
+  ADV_HIDRICA: { nombre: 'Amarillo', color: '#f1c40f' },
+  ADV_TERMICA: { nombre: 'Ámbar', color: '#e67e22' },
+  CRITICO: { nombre: 'Rojo', color: '#e74c3c' },
+};
 
 /* ---------- Utilidad interna: dejar el valor como entero 0..255 -------- */
 function aByte(numeroEntero: number): number {
   return Math.max(0, Math.min(255, Math.trunc(numeroEntero)));
 }
 
-/* ---------- a) Decimal  ->  Binario de 8 bits -------------------------- */
-// Ej: 35  ->  "00100011"
-export function convertirABinario8Bits(numeroEntero: number): string {
-  return aByte(numeroEntero).toString(2).padStart(8, '0');
+// Tabla de caracteres: cada dígito (0..15) es el índice de su carácter.
+const DIGITOS = '0123456789ABCDEF';
+
+/* ---------- a) Decimal por divisiones sucesivas ------------------------ */
+// Ej: 100 -> centenas 1, decenas 0, unidades 0 -> "100"
+export function convertirADecimal(numeroEntero: number): string {
+  const valor = aByte(numeroEntero);
+  const centenas = Math.floor(valor / 100);
+  const resto = valor % 100;
+  const decenas = Math.floor(resto / 10);
+  const unidades = resto % 10;
+  let texto = '';
+  if (centenas > 0) texto += DIGITOS[centenas];
+  if (centenas > 0 || decenas > 0) texto += DIGITOS[decenas];
+  return texto + DIGITOS[unidades];
 }
 
-/* ---------- b) Decimal  ->  Hexadecimal de 2 dígitos + "H" ------------- */
-// Ej: 35  ->  "23H"
+/* ---------- b) Binario de 8 bits: se aísla cada bit, de b7 a b0 -------- */
+// Ej: 35  ->  "00100011"
+export function convertirABinario8Bits(numeroEntero: number): string {
+  const valor = aByte(numeroEntero);
+  let bits = '';
+  for (let i = 7; i >= 0; i--) bits += DIGITOS[(valor >> i) & 1];
+  return bits;
+}
+
+/* ---------- c) Hexadecimal por cuartetos (nibbles) --------------------- */
+// Ej: 35  ->  nibble alto 2, nibble bajo 3  ->  "0x23"
 export function convertirAHexadecimal(numeroEntero: number): string {
-  return aByte(numeroEntero).toString(16).toUpperCase().padStart(2, '0') + 'H';
+  const valor = aByte(numeroEntero);
+  const nibbleAlto = (valor >> 4) & 0x0f;
+  const nibbleBajo = valor & 0x0f;
+  return '0x' + DIGITOS[nibbleAlto] + DIGITOS[nibbleBajo];
+}
+
+/* ---------- PROCESAMIENTO: resta de 8 bits en la ALU ------------------- */
+// La ALU resta sumando el complemento a dos del sustraendo (M + ~S + 1); el
+// noveno bit de esa suma es el acarreo de salida del sumador.
+// Convención AVR: la bandera C vale 1 cuando la resta pide préstamo (M < S),
+// es decir, C = NOT acarreo. ARM y 6502 usan la polaridad inversa.
+export type RestaALU = {
+  resultado: number; // 8 bits: 29 − 30 da 0xFF
+  prestamo: Bit; // bandera C = FLAG_BORROW
+};
+
+export function restarEnALU(minuendo: number, sustraendo: number): RestaALU {
+  const suma = (minuendo & 0xff) + (~sustraendo & 0xff) + 1;
+  const acarreo = (suma >> 8) & 1;
+  return { resultado: suma & 0xff, prestamo: (acarreo ^ 1) as Bit };
 }
 
 /* ---------- Tipo con todas las SALIDAS del sistema -------------------- */
 export type Salidas = {
-  bombaAgua: 0 | 1;
-  ventiladores: 0 | 1;
-  alarmaSonora: 0 | 1;
-  estadoLuzLED: 1 | 2 | 3; // 1 Verde · 2 Amarillo · 3 Rojo
-  estado: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO';
-  regla: string; // qué regla se activó (para el HUD técnico)
+  restaTemperatura: RestaALU; // UMBRAL_TEMP − VAR_TEMP
+  restaHumedad: RestaALU; // VAR_HUM − UMBRAL_HUM
+  flagTempAlta: Bit; // A
+  flagHumBaja: Bit; // B
+  bombaAgua: Bit; // Y_B
+  ventiladores: Bit; // Y_V
+  alarmaSonora: Bit; // Y_A
+  severidad: Severidad; // S₁S₀
+  estado: Estado;
+  regAct: number; // registro empaquetado REG_ACT (0..255)
 };
 
-export const NOMBRE_LED: Record<1 | 2 | 3, string> = {
-  1: 'Verde',
-  2: 'Amarillo',
-  3: 'Rojo',
-};
-
-/* ---------- c) PROCESAMIENTO: evaluar el estado del sistema ----------- */
-// Se evalúan las 3 reglas EN ORDEN, de mayor a menor severidad.
-// La primera que se cumple "gana" y define todas las salidas.
+/* ---------- PROCESAMIENTO: evaluar el estado del sistema ----------- */
+// No hay una regla por estado: las cuatro combinaciones de A y B salen de las
+// ecuaciones simplificadas por álgebra de Boole.
 export function evaluarEstadoSistema(
-  humedadSuelo: number,
-  temperaturaAmbiente: number,
+  entradas: Entradas,
+  memoria: ParametrosControl = MEMORIA_PERSISTENTE,
 ): Salidas {
-  const hum = Math.trunc(humedadSuelo);
-  const temp = Math.trunc(temperaturaAmbiente);
+  const hum = aByte(entradas.humedadSuelo);
+  const temp = aByte(entradas.temperaturaAmbiente);
 
-  // ---- Regla 1 · CRÍTICO: hace demasiado calor Y la tierra está seca ----
-  if (temp > UMBRAL_TEMP_CRITICA && hum < UMBRAL_HUMEDAD_BAJA) {
-    return {
-      bombaAgua: 1,
-      ventiladores: 1,
-      alarmaSonora: 1,
-      estadoLuzLED: 3,
-      estado: 'CRITICO',
-      regla: 'Regla 1 · Estado Crítico',
-    };
-  }
+  // 1) Comparación en la ALU: el préstamo de cada resta es la bandera de umbral
+  const restaTemperatura = restarEnALU(memoria.UMBRAL_TEMP, temp); // C = 1 ⇔ T > 35
+  const restaHumedad = restarEnALU(hum, memoria.UMBRAL_HUM); // C = 1 ⇔ H < 30
+  const A = restaTemperatura.prestamo; // FLAG_TEMP_ALTA
+  const B = restaHumedad.prestamo; // FLAG_HUM_BAJA
 
-  // ---- Regla 2 · ADVERTENCIA: la tierra se seca, temperatura aún ok ----
-  if (hum < UMBRAL_HUMEDAD_BAJA && temp <= UMBRAL_TEMP_CRITICA) {
-    return {
-      bombaAgua: 1,
-      ventiladores: 0,
-      alarmaSonora: 0,
-      estadoLuzLED: 2,
-      estado: 'ADVERTENCIA',
-      regla: 'Regla 2 · Advertencia',
-    };
-  }
+  // 2) Ecuaciones de salida
+  const bombaAgua = B; // Y_B = B
+  const ventiladores = A; // Y_V = A
+  const alarmaSonora = (A & B) as Bit; // Y_A = A · B (solo estado crítico)
+  const severidad = ((A << 1) | B) as Severidad; // S₁ = A, S₀ = B
 
-  // ---- Regla 3 · NORMAL: humedad correcta -> no hay riesgo -------------
-  // También cubre el caso CP-07: temperatura alta pero la humedad
-  // está bien, así que ninguna regla anterior aplica y el sistema
-  // se considera Normal (LED verde, todo apagado).
+  // 3) Carga de REG_ACT: reinicio, máscaras OR y severidad desplazada 3 bits
+  let regAct = 0x00;
+  if (bombaAgua) regAct |= MASK_BOMBA;
+  if (ventiladores) regAct |= MASK_VENTIL;
+  if (alarmaSonora) regAct |= MASK_ALARMA;
+  regAct |= severidad << SHIFT_SEV;
+
   return {
-    bombaAgua: 0,
-    ventiladores: 0,
-    alarmaSonora: 0,
-    estadoLuzLED: 1,
-    estado: 'NORMAL',
-    regla: 'Regla 3 · Estado Normal',
+    restaTemperatura,
+    restaHumedad,
+    flagTempAlta: A,
+    flagHumBaja: B,
+    bombaAgua,
+    ventiladores,
+    alarmaSonora,
+    severidad,
+    estado: ESTADOS[severidad],
+    regAct,
   };
 }
-
-/* ---------- Matriz de casos de prueba (documento, sección 6) ---------- */
-export type CasoPrueba = {
-  id: string;
-  temp: number;
-  hum: number;
-  esperado: 'NORMAL' | 'ADVERTENCIA' | 'CRITICO';
-};
-
-export const CASOS_PRUEBA: CasoPrueba[] = [
-  { id: 'CP-01', temp: 22, hum: 60, esperado: 'NORMAL' },
-  { id: 'CP-02', temp: 30, hum: 30, esperado: 'NORMAL' },
-  { id: 'CP-03', temp: 25, hum: 15, esperado: 'ADVERTENCIA' },
-  { id: 'CP-04', temp: 35, hum: 20, esperado: 'ADVERTENCIA' },
-  { id: 'CP-05', temp: 40, hum: 10, esperado: 'CRITICO' },
-  { id: 'CP-06', temp: 45, hum: 5, esperado: 'CRITICO' },
-  { id: 'CP-07', temp: 38, hum: 55, esperado: 'NORMAL' },
-  { id: 'CP-08', temp: 18, hum: 80, esperado: 'NORMAL' },
-];

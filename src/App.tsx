@@ -13,7 +13,7 @@ export default function App() {
   const [temperatura, setTemperatura] = useState(24); // temperaturaAmbiente (0..50)
 
   // PROCESAMIENTO: se recalcula solo cuando cambia una entrada
-  const salidas = evaluarEstadoSistema(humedad, temperatura);
+  const salidas = evaluarEstadoSistema({ humedadSuelo: humedad, temperaturaAmbiente: temperatura });
 
   return (
     <div className="layout">

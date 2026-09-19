@@ -1,18 +1,20 @@
 // Animaciones del operador: ciclo de caminata y globo de pensamiento al acercarse a un invernadero.
 
-import type { Salidas } from '../logica';
+import type { Estado } from '../logica';
 import type { Jugador } from './colision';
 import { caminoRR } from './dibujo';
 
 // pensamientos del operador según el estado del sistema
-export const FRASES: Record<Salidas['estado'], string[]> = {
+// (la alarma solo suena en CRITICO: no mencionarla en los demás estados)
+export const FRASES: Record<Estado, string[]> = {
   NORMAL: ['Todo tranquilo por aquí 🌱', 'Las plantas se ven felices', 'Nada que reportar, por ahora'],
-  ADVERTENCIA: ['La tierra se está secando...', 'Mejor activo el riego', 'Hay que vigilar esto'],
+  ADV_HIDRICA: ['La tierra se está secando...', 'Mejor activo el riego', 'Hay que vigilar la humedad'],
+  ADV_TERMICA: ['Está subiendo mucho la temperatura', 'Enciendo los ventiladores', 'El suelo está bien, el aire no'],
   CRITICO: ['¡Esto es crítico!', '¡Necesita agua YA!', '¡Alarma activada!'],
 };
 
 // elige la frase actual, rotando cada ~2 segundos (130 frames)
-export function fraseActual(estado: Salidas['estado'], frame: number): string {
+export function fraseActual(estado: Estado, frame: number): string {
   const frases = FRASES[estado];
   return frases[Math.floor(frame / 130) % frases.length];
 }
