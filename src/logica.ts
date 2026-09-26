@@ -49,11 +49,11 @@ export const NOMBRE_ESTADO: Record<Estado, string> = {
   CRITICO: 'Estado Crítico',
 };
 
-export const LED: Record<Estado, { nombre: string; color: string }> = {
-  NORMAL: { nombre: 'Verde', color: '#2ecc71' },
-  ADV_HIDRICA: { nombre: 'Amarillo', color: '#f1c40f' },
-  ADV_TERMICA: { nombre: 'Ámbar', color: '#e67e22' },
-  CRITICO: { nombre: 'Rojo', color: '#e74c3c' },
+export const LED: Record<Estado, { nombre: string; color: string; modo: 'fijo' | 'intermitente' }> = {
+  NORMAL: { nombre: 'Verde', color: '#2ecc71', modo: 'fijo' },
+  ADV_HIDRICA: { nombre: 'Amarillo', color: '#f1c40f', modo: 'fijo' },
+  ADV_TERMICA: { nombre: 'Rojo Interm.', color: '#e74c3c', modo: 'intermitente' }, // Consideración 5
+  CRITICO: { nombre: 'Rojo Fijo', color: '#e74c3c', modo: 'fijo' },                    // Consideración 5
 };
 
 /* ---------- Utilidad interna: dejar el valor como entero 0..255 -------- */
@@ -136,19 +136,16 @@ export function evaluarEstadoSistema(
   const hum = aByte(entradas.humedadSuelo);
   const temp = aByte(entradas.temperaturaAmbiente);
 
-  // 1) Comparación en la ALU: el préstamo de cada resta es la bandera de umbral
-  const restaTemperatura = restarEnALU(memoria.UMBRAL_TEMP, temp); // C = 1 ⇔ T > 35
-  const restaHumedad = restarEnALU(hum, memoria.UMBRAL_HUM); // C = 1 ⇔ H < 30
-  const A = restaTemperatura.prestamo; // FLAG_TEMP_ALTA
-  const B = restaHumedad.prestamo; // FLAG_HUM_BAJA
+  const restaTemperatura = restarEnALU(memoria.UMBRAL_TEMP, temp);
+  const restaHumedad = restarEnALU(hum, memoria.UMBRAL_HUM);
+  const A = restaTemperatura.prestamo;
+  const B = restaHumedad.prestamo;
 
-  // 2) Ecuaciones de salida
-  const bombaAgua = B; // Y_B = B
-  const ventiladores = A; // Y_V = A
-  const alarmaSonora = (A & B) as Bit; // Y_A = A · B (solo estado crítico)
-  const severidad = ((A << 1) | B) as Severidad; // S₁ = A, S₀ = B
+  const bombaAgua = B; 
+  const ventiladores = A; 
+  const alarmaSonora = A; // YA = A (según documento T1)
+  const severidad = ((A << 1) | B) as Severidad;
 
-  // 3) Carga de REG_ACT: reinicio, máscaras OR y severidad desplazada 3 bits
   let regAct = 0x00;
   if (bombaAgua) regAct |= MASK_BOMBA;
   if (ventiladores) regAct |= MASK_VENTIL;

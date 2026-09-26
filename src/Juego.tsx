@@ -171,7 +171,7 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
       const lx = x + 6;
       const ly = y + 22;
       const colorLED = LED[s.estado].color;
-      const parpadeo = s.estado === 'CRITICO' && frame % 40 < 20;
+      const parpadeo = s.estado === 'ADV_TERMICA' && frame % 40 < 20;
       const glow = ctx!.createRadialGradient(lx + 8, ly + 8, 0, lx + 8, ly + 8, 22);
       glow.addColorStop(0, hexA(colorLED, parpadeo ? 0.05 : 0.5));
       glow.addColorStop(1, 'rgba(0,0,0,0)');

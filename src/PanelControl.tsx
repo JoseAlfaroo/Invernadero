@@ -62,7 +62,7 @@ function describirCausa(estado: Estado, humedad: number, temperatura: number): s
     case 'ADV_HIDRICA':
       return `Riego encendido: ${seco}.`;
     case 'ADV_TERMICA':
-      return `Ventiladores encendidos: ${calor}.`;
+      return `Ventiladores y alarma encendidos: ${calor}.`; 
     case 'CRITICO':
       return `Riego, ventiladores y alarma encendidos: ${seco}; ${calor}.`;
   }
@@ -189,9 +189,13 @@ export default function PanelControl({
         <h2>Zona 2 · Panel de Control (Entradas)</h2>
 
         <div className="control">
-          <label>Humedad del suelo — <b>{humedad}%</b></label>
+          <label>
+            Humedad del suelo — <b>{humedad}%</b>
+          </label>
           <div className="control-fila">
-            <button onClick={() => setHumedad(limitar(humedad - 1, 0, 100))}>−</button>
+            <button onClick={() => setHumedad(limitar(humedad - 1, 0, 100))}>
+              −
+            </button>
             <input
               type="range"
               min={0}
@@ -199,14 +203,22 @@ export default function PanelControl({
               value={humedad}
               onChange={(e) => setHumedad(Number(e.target.value))}
             />
-            <button onClick={() => setHumedad(limitar(humedad + 1, 0, 100))}>+</button>
+            <button onClick={() => setHumedad(limitar(humedad + 1, 0, 100))}>
+              +
+            </button>
           </div>
         </div>
 
         <div className="control">
-          <label>Temperatura ambiente — <b>{temperatura}°C</b></label>
+          <label>
+            Temperatura ambiente — <b>{temperatura}°C</b>
+          </label>
           <div className="control-fila">
-            <button onClick={() => setTemperatura(limitar(temperatura - 1, 0, 50))}>−</button>
+            <button
+              onClick={() => setTemperatura(limitar(temperatura - 1, 0, 50))}
+            >
+              −
+            </button>
             <input
               type="range"
               min={0}
@@ -214,7 +226,11 @@ export default function PanelControl({
               value={temperatura}
               onChange={(e) => setTemperatura(Number(e.target.value))}
             />
-            <button onClick={() => setTemperatura(limitar(temperatura + 1, 0, 50))}>+</button>
+            <button
+              onClick={() => setTemperatura(limitar(temperatura + 1, 0, 50))}
+            >
+              +
+            </button>
           </div>
         </div>
       </section>
@@ -236,7 +252,9 @@ export default function PanelControl({
         <FilaArq nombre="UMBRAL_HUM" valor={UMBRAL_HUM} />
         <FilaArq nombre="UMBRAL_TEMP" valor={UMBRAL_TEMP} />
 
-        <p className="mini-titulo">ALU · restas de 8 bits (C = 1 ⇒ préstamo, AVR)</p>
+        <p className="mini-titulo">
+          ALU · restas de 8 bits (C = 1 ⇒ préstamo, AVR)
+        </p>
         <FilaALU
           bandera="A = FLAG_TEMP_ALTA"
           operacion="UMBRAL_TEMP − VAR_TEMP"
@@ -256,15 +274,23 @@ export default function PanelControl({
         <RegistroRegAct regAct={salidas.regAct} />
         <FilaArq nombre="REG_ACT" valor={salidas.regAct} />
         <p className="sev">
-          S₁S₀ = (REG_ACT AND {convertirAHexadecimal(MASK_SEV)}) &gt;&gt; {SHIFT_SEV} = <b>{severidad}</b> · S₁ = A, S₀ = B
+          S₁S₀ = (REG_ACT AND {convertirAHexadecimal(MASK_SEV)}) &gt;&gt;{" "}
+          {SHIFT_SEV} = <b>{severidad}</b> · S₁ = A, S₀ = B
         </p>
-        <p className="sev">Resaltado: bits que cambiaron (REG_ACT XOR anterior)</p>
+        <p className="sev">
+          Resaltado: bits que cambiaron (REG_ACT XOR anterior)
+        </p>
       </section>
 
       {/* ---------------- SALIDA: ESTADO + ACTUADORES ---------------- */}
-      <section className="bloque" style={{ '--led': led.color } as CSSProperties}>
+      <section
+        className="bloque"
+        style={{ "--led": led.color } as CSSProperties}
+      >
         <h2>Salida · Estado del Sistema</h2>
-        <div className={`estado${salidas.estado === 'CRITICO' ? ' estado-critico' : ''}`}>
+        <div
+          className={`estado${salidas.estado === "CRITICO" ? " estado-critico" : ""}`}
+        >
           <b>{NOMBRE_ESTADO[salidas.estado]}</b>
           <span>{describirCausa(salidas.estado, humedad, temperatura)}</span>
         </div>
@@ -276,7 +302,9 @@ export default function PanelControl({
           <div className="chip">
             <span>Indicador LED</span>
             <b className="led">
-              <i className="led-punto" />
+              <i
+                className={`led-punto ${led.modo === "intermitente" ? "led-parpadeo" : ""}`}
+              />
               {led.nombre}
             </b>
           </div>
@@ -288,37 +316,53 @@ export default function PanelControl({
         <h2>
           Matriz de Casos de Prueba · {APROBADOS}/{RESULTADOS_PRUEBA.length} OK
         </h2>
-        <p className="nota">Clic en un caso para cargar sus entradas. CP-F: pruebas de frontera.</p>
+        <p className="nota">
+          Clic en un caso para cargar sus entradas. CP-F: pruebas de frontera.
+        </p>
         <table className="tabla">
           <thead>
             <tr>
-              <th>ID</th><th>H%</th><th>T°C</th><th>LED</th><th>REG esp.</th><th>REG real</th><th></th>
+              <th>ID</th>
+              <th>H%</th>
+              <th>T°C</th>
+              <th>LED</th>
+              <th>REG esp.</th>
+              <th>REG real</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {RESULTADOS_PRUEBA.map(({ caso, real, ok }) => {
-              const activo = caso.humedad === humedad && caso.temperatura === temperatura;
+              const activo =
+                caso.humedad === humedad && caso.temperatura === temperatura;
               return (
                 <tr
                   key={caso.id}
-                  className={`${ok ? 'ok' : 'fail'}${activo ? ' activo' : ''}`}
+                  className={`${ok ? "ok" : "fail"}${activo ? " activo" : ""}`}
                   onClick={() => {
                     setHumedad(caso.humedad);
                     setTemperatura(caso.temperatura);
                   }}
                 >
                   <td>
-                    <button type="button" className="caso">{caso.id}</button>
+                    <button type="button" className="caso">
+                      {caso.id}
+                    </button>
                   </td>
                   <td>{caso.humedad}</td>
                   <td>{caso.temperatura}</td>
-                  <td className="celda-led" style={{ '--led': LED[caso.estado].color } as CSSProperties}>
-                    <i className="led-punto" />
+                  <td
+                    className="celda-led"
+                    style={{ "--led": LED[caso.estado].color } as CSSProperties}
+                  >
+                    <i
+                      className={`led-punto ${LED[caso.estado].modo === "intermitente" ? "led-parpadeo" : ""}`}
+                    />
                     {LED[caso.estado].nombre}
                   </td>
                   <td>{convertirAHexadecimal(caso.regAct)}</td>
                   <td>{convertirAHexadecimal(real.regAct)}</td>
-                  <td className="marca">{ok ? '✔' : '✗'}</td>
+                  <td className="marca">{ok ? "✔" : "✗"}</td>
                 </tr>
               );
             })}
