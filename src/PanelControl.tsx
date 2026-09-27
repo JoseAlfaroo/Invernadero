@@ -317,7 +317,7 @@ export default function PanelControl({
           Matriz de Casos de Prueba · {APROBADOS}/{RESULTADOS_PRUEBA.length} OK
         </h2>
         <p className="nota">
-          Clic en un caso para cargar sus entradas. CP-F: pruebas de frontera.
+          Clic en un caso para cargar sus entradas:
         </p>
         <table className="tabla">
           <thead>

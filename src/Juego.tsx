@@ -63,12 +63,14 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
     /* ---------- teclado ---------- */
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (esTeclaDeMovimiento(k)) {
+      if (esTeclaDeMovimiento(k) || k === 'shift') {
         teclas.add(k);
-        e.preventDefault();
+        if (k !== 'shift') e.preventDefault();
       }
     };
-    const onKeyUp = (e: KeyboardEvent) => teclas.delete(e.key.toLowerCase());
+    const onKeyUp = (e: KeyboardEvent) => {
+      teclas.delete(e.key.toLowerCase());
+    };
 
     /* ---------- un invernadero con sus actuadores ---------- */
     function dibujarInvernadero(
@@ -267,7 +269,15 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
         const bw = 200;
         const bh = 62;
         const bx = Math.min(Math.max(gx - bw / 2, 6), canvas!.width - bw - 6);
-        const by = y - bh - 16;
+
+        // CORRECCIÓN AQUÍ: Usamos `gy` (el centro del invernadero) en lugar de `y` (la cima del techo).
+        // Así, en toda la mitad superior / parte trasera del invernadero, el cartel se enviará abajo.
+        const jugadorPorArriba = jugador.y < gy;
+
+        // Si el jugador está en la parte trasera/arriba, el cartel baja
+        const by = jugadorPorArriba ? y + H + 18 : y - bh - 16;
+
+        // Cuerpo del resumen técnico
         ctx!.fillStyle = 'rgba(12,20,25,0.92)';
         caminoRR(ctx!, bx, by, bw, bh, 8);
         ctx!.fill();
@@ -275,17 +285,37 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
         ctx!.lineWidth = 1.5;
         caminoRR(ctx!, bx, by, bw, bh, 8);
         ctx!.stroke();
+
+        // Flecha indicadora apuntando correctamente
         ctx!.beginPath();
-        ctx!.moveTo(gx - 6, by + bh);
-        ctx!.lineTo(gx + 6, by + bh);
-        ctx!.lineTo(gx, by + bh + 8);
+        if (jugadorPorArriba) {
+          // Flecha apuntando hacia arriba (hacia la base del invernadero)
+          ctx!.moveTo(gx - 6, by);
+          ctx!.lineTo(gx + 6, by);
+          ctx!.lineTo(gx, by - 8);
+        } else {
+          // Flecha apuntando hacia abajo (hacia el techo del invernadero)
+          ctx!.moveTo(gx - 6, by + bh);
+          ctx!.lineTo(gx + 6, by + bh);
+          ctx!.lineTo(gx, by + bh + 8);
+        }
         ctx!.closePath();
         ctx!.fillStyle = 'rgba(12,20,25,0.92)';
         ctx!.fill();
+
+        // Texto técnico multibase
         ctx!.fillStyle = '#e8f6ff';
         ctx!.font = '11px ui-monospace, Consolas, monospace';
-        ctx!.fillText(`TEMP ${temp}C  ${convertirABinario8Bits(temp)}  ${convertirAHexadecimal(temp)}`, bx + 10, by + 18);
-        ctx!.fillText(`HUM  ${hum}%  ${convertirABinario8Bits(hum)}  ${convertirAHexadecimal(hum)}`, bx + 10, by + 34);
+        ctx!.fillText(
+          `TEMP ${temp}C  ${convertirABinario8Bits(temp)}  ${convertirAHexadecimal(temp)}`,
+          bx + 10,
+          by + 18,
+        );
+        ctx!.fillText(
+          `HUM  ${hum}%  ${convertirABinario8Bits(hum)}  ${convertirAHexadecimal(hum)}`,
+          bx + 10,
+          by + 34,
+        );
         ctx!.fillStyle = colorLED;
         ctx!.fillText(`● ${NOMBRE_ESTADO[s.estado]}`, bx + 10, by + 52);
       }
@@ -294,12 +324,34 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
     /* ---------- ayuda ---------- */
     function dibujarAyuda() {
       if (!canvas) return;
-      ctx!.fillStyle = 'rgba(12,20,25,0.78)';
-      caminoRR(ctx!, 12, canvas.height - 42, 470, 28, 6);
+
+      const texto = 'WASD / Flechas para moverte · Shift para correr · Acércate a inspeccionar';
+      const font = '13px system-ui, sans-serif';
+      ctx!.font = font;
+
+      // Calcula el ancho exacto del texto + padding lateral
+      const paddingX = 16;
+      const anchoTexto = ctx!.measureText(texto).width;
+      const anchoCaja = anchoTexto + paddingX * 2;
+      const altoCaja = 28;
+      const posX = 12;
+      const posY = canvas.height - 40;
+
+      // Fondo redondeado con ancho dinámico
+      ctx!.fillStyle = 'rgba(12,20,25,0.85)';
+      caminoRR(ctx!, posX, posY, anchoCaja, altoCaja, 6);
       ctx!.fill();
+
+      // Borde sutil
+      ctx!.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx!.lineWidth = 1;
+      caminoRR(ctx!, posX, posY, anchoCaja, altoCaja, 6);
+      ctx!.stroke();
+
+      // Texto impreso
       ctx!.fillStyle = '#e8f6ff';
-      ctx!.font = '13px system-ui, sans-serif';
-      ctx!.fillText('Muévete con WASD / Flechas · Acércate a un invernadero para inspeccionarlo', 24, canvas.height - 23);
+      ctx!.font = font;
+      ctx!.fillText(texto, posX + paddingX, posY + 18);
     }
 
     /* ---------- bucle principal ---------- */
@@ -309,20 +361,49 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
       const invernaderos = posicionesInvernaderos(canvas.width, canvas.height);
       moverJugador(jugador, teclas, canvas.width, canvas.height, invernaderos);
       const { humedad: h, temperatura: t, salidas: s } = datosRef.current;
+
+      // 1. Dibujar suelo y escenario estático (césped, caminos, pozo, etc.)
       escena.dibujarMapa(canvas.width, canvas.height, imgMapa);
       if (!imgMapa) escena.dibujarEscenario(canvas.width, canvas.height, frame);
+
       let hayCerca = false;
+
+      // 2. Crear una lista de todos los objetos renderizables que tienen profundidad
+      type ObjetoDepth = 
+        | { tipo: 'invernadero'; y: number; g: Invernadero; cerca: boolean }
+        | { tipo: 'jugador'; y: number };
+
+      const objetos: ObjetoDepth[] = [];
+
+      // La base de apoyo en el suelo del invernadero está en g.y + 46
       for (const g of invernaderos) {
         const cerca = Math.hypot(g.x - jugador.x, g.y - jugador.y) < 100;
         if (cerca) hayCerca = true;
-        dibujarInvernadero(g.x, g.y, cerca, h, t, s);
+        objetos.push({ tipo: 'invernadero', y: g.y + 46, g, cerca });
       }
-      dibujarJugador(ctx!, jugador, frame);
+
+      // Los pies del jugador están en jugador.y
+      objetos.push({ tipo: 'jugador', y: jugador.y });
+
+      // 3. Ordenar por Coordenada Y de menor a mayor (de arriba a abajo en pantalla)
+      objetos.sort((a, b) => a.y - b.y);
+
+      // 4. Renderizar en el orden exacto de profundidad
+      for (const obj of objetos) {
+        if (obj.tipo === 'invernadero') {
+          dibujarInvernadero(obj.g.x, obj.g.y, obj.cerca, h, t, s);
+        } else {
+          dibujarJugador(ctx!, jugador, frame);
+        }
+      }
+
+      // 5. Dibujar elementos superpuestos (UI, globo de pensamiento y luz ambiental)
       if (hayCerca) {
         dibujarPensamiento(ctx!, canvas.width, jugador.x, jugador.y, fraseActual(s.estado, frame));
       }
       escena.dibujarAmbiente(canvas.width, canvas.height, frame);
       dibujarAyuda();
+
       raf = requestAnimationFrame(bucle);
     }
 
