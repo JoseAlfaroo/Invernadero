@@ -9,11 +9,14 @@ import {
   MASK_BOMBA,
   MASK_SEV,
   MASK_VENTIL,
+  PERIODO_PARPADEO_MS,
+  PRESENTACION,
   SHIFT_SEV,
   convertirABinario8Bits,
   convertirADecimal,
   convertirAHexadecimal,
   evaluarEstadoSistema,
+  ledEncendido,
   restarEnALU,
 } from './logica.ts';
 
@@ -40,7 +43,7 @@ describe('Lógica booleana y registro REG_ACT', () => {
         const B = h < 30 ? 1 : 0;
         assert.deepEqual(
           { A: s.flagTempAlta, B: s.flagHumBaja, Y_B: s.bombaAgua, Y_V: s.ventiladores, Y_A: s.alarmaSonora, S: s.severidad },
-          { A, B, Y_B: B, Y_V: A, Y_A: A & B, S: (A << 1) | B },
+          { A, B, Y_B: B, Y_V: A, Y_A: A, S: (A << 1) | B },
           `H = ${h} %, T = ${t} °C`,
         );
       }
@@ -61,14 +64,15 @@ describe('Lógica booleana y registro REG_ACT', () => {
       }
     }
     // un código distinto por estado (antes térmica y crítico compartían 11)
-    assert.deepEqual(codigos, new Map([[0x00, 'NORMAL'], [0x09, 'ADV_HIDRICA'], [0x12, 'ADV_TERMICA'], [0x1F, 'CRITICO']]));
+    assert.deepEqual(codigos, new Map([[0x00, 'NORMAL'], [0x09, 'ADV_HIDRICA'], [0x16, 'ADV_TERMICA'], [0x1F, 'CRITICO']]));
   });
 
-  test('ejemplo de consolidación del documento: T = 38 °C, H = 55 % -> 0x12', () => {
+  test('ejemplo de consolidación del documento: T = 38 °C, H = 55 % -> 0x16', () => {
     const s = evaluar(55, 38);
     assert.equal(s.estado, 'ADV_TERMICA');
-    assert.equal(s.alarmaSonora, 0);
-    assert.equal(s.regAct, 0b0001_0000 | 0b0000_0010);
+    assert.equal(s.alarmaSonora, 1); // Y_A = A: la sirena suena en toda advertencia térmica
+    assert.equal(s.regAct, 0b0001_0000 | 0b0000_0110);
+    assert.equal(convertirAHexadecimal(s.regAct), '0x16');
   });
 
   test('los umbrales se leen de la memoria y no están fijos en las comparaciones', () => {
@@ -76,6 +80,43 @@ describe('Lógica booleana y registro REG_ACT', () => {
     const s = evaluarEstadoSistema({ humedadSuelo: 35, temperaturaAmbiente: 32 }, recalibrado);
     assert.equal(s.estado, 'CRITICO');
     assert.equal(evaluar(35, 32).estado, 'NORMAL');
+  });
+});
+
+describe('Patrones de salida por nivel de severidad (observación 5)', () => {
+  test('advertencia térmica y estado crítico comparten color rojo y se distinguen por patrón', () => {
+    const termica = PRESENTACION.ADV_TERMICA;
+    const critico = PRESENTACION.CRITICO;
+    assert.equal(termica.color, critico.color);
+    assert.deepEqual(
+      { led: termica.patronLED, parpadea: termica.parpadea, alarma: termica.patronAlarma },
+      { led: 'Rojo intermitente', parpadea: true, alarma: 'pulsos' },
+    );
+    assert.deepEqual(
+      { led: critico.patronLED, parpadea: critico.parpadea, alarma: critico.patronAlarma },
+      { led: 'Rojo fijo', parpadea: false, alarma: 'continuo' },
+    );
+  });
+
+  test('el patrón de alarma concuerda con el bit Y_A de cada estado', () => {
+    for (let h = 0; h <= 100; h++) {
+      for (let t = 0; t <= 50; t++) {
+        const s = evaluar(h, t);
+        const suena = PRESENTACION[s.estado].patronAlarma !== 'silencio';
+        assert.equal(suena, s.alarmaSonora === 1, `H = ${h} %, T = ${t} °C`);
+      }
+    }
+  });
+
+  test('el parpadeo es de 2 Hz y solo afecta a la advertencia térmica', () => {
+    const medio = PERIODO_PARPADEO_MS / 2;
+    assert.equal(ledEncendido('ADV_TERMICA', 0), true);
+    assert.equal(ledEncendido('ADV_TERMICA', medio - 1), true);
+    assert.equal(ledEncendido('ADV_TERMICA', medio), false);
+    assert.equal(ledEncendido('ADV_TERMICA', PERIODO_PARPADEO_MS), true);
+    for (const estado of ['NORMAL', 'ADV_HIDRICA', 'CRITICO'] as const) {
+      assert.equal(ledEncendido(estado, medio), true, `${estado} no debe parpadear`);
+    }
   });
 });
 

@@ -5,12 +5,12 @@ import type { Jugador } from './colision';
 import { caminoRR } from './dibujo';
 
 // pensamientos del operador según el estado del sistema
-// (la alarma solo suena en CRITICO: no mencionarla en los demás estados)
+// (la sirena suena en ADV_TERMICA y en CRITICO: Y_A = A)
 export const FRASES: Record<Estado, string[]> = {
   NORMAL: ['Todo tranquilo por aquí 🌱', 'Las plantas se ven felices', 'Nada que reportar, por ahora'],
   ADV_HIDRICA: ['La tierra se está secando...', 'Mejor activo el riego', 'Hay que vigilar la humedad'],
-  ADV_TERMICA: ['Está subiendo mucho la temperatura', 'Enciendo los ventiladores', 'El suelo está bien, el aire no'],
-  CRITICO: ['¡Esto es crítico!', '¡Necesita agua YA!', '¡Alarma activada!'],
+  ADV_TERMICA: ['Está subiendo mucho la temperatura', 'Ventiladores y alarma encendidos', 'El suelo está bien, el aire no'],
+  CRITICO: ['¡Esto es crítico!', '¡Necesita agua YA!', '¡Alarma sonando sin parar!'],
 };
 
 // elige la frase actual, rotando cada ~2 segundos (130 frames)

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Salidas } from './logica';
-import { LED, NOMBRE_ESTADO, convertirABinario8Bits, convertirAHexadecimal } from './logica';
+import { NOMBRE_ESTADO, PRESENTACION, convertirABinario8Bits, convertirAHexadecimal, ledEncendido } from './logica';
 import { caminoRR, hexA } from './juego/dibujo';
 import { crearEscenario } from './juego/objetos';
 import { crearJugador, esTeclaDeMovimiento, moverJugador, posicionesInvernaderos } from './juego/colision';
@@ -167,13 +167,14 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
 
       /* ===== ACTUADORES ===== */
 
-      // LED de estado (con resplandor; parpadea en estado crítico)
+      // LED de estado: rojo intermitente en advertencia térmica, rojo fijo en
+      // estado crítico. La fase sale de logica.ts, la misma que usa el HUD.
       const lx = x + 6;
       const ly = y + 22;
-      const colorLED = LED[s.estado].color;
-      const parpadeo = s.estado === 'CRITICO' && frame % 40 < 20;
+      const colorLED = PRESENTACION[s.estado].color;
+      const encendido = ledEncendido(s.estado, performance.now());
       const glow = ctx!.createRadialGradient(lx + 8, ly + 8, 0, lx + 8, ly + 8, 22);
-      glow.addColorStop(0, hexA(colorLED, parpadeo ? 0.05 : 0.5));
+      glow.addColorStop(0, hexA(colorLED, encendido ? 0.5 : 0.05));
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx!.fillStyle = glow;
       ctx!.beginPath();
@@ -182,7 +183,7 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
       ctx!.fillStyle = '#22333b';
       caminoRR(ctx!, lx - 2, ly - 2, 20, 20, 3);
       ctx!.fill();
-      ctx!.fillStyle = parpadeo ? '#5c1712' : colorLED;
+      ctx!.fillStyle = encendido ? colorLED : '#5c1712';
       caminoRR(ctx!, lx, ly, 16, 16, 2);
       ctx!.fill();
 
@@ -238,9 +239,10 @@ export default function Juego({ humedad, temperatura, salidas }: Props) {
         ctx!.fill();
       }
 
-      // alarma: baliza + anillo expansivo si alarmaSonora = 1
+      // alarma: baliza + anillo expansivo si alarmaSonora = 1. La baliza sigue
+      // el patrón sonoro: pulsa con los pulsos y queda fija con el tono continuo.
       if (s.alarmaSonora === 1) {
-        const on = frame % 30 < 15;
+        const on = PRESENTACION[s.estado].patronAlarma === 'continuo' || encendido;
         ctx!.fillStyle = on ? '#ff3b30' : '#7a1c17';
         ctx!.beginPath();
         ctx!.arc(gx, y - 14, 4, 0, Math.PI * 2);

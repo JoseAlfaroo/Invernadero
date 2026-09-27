@@ -49,12 +49,43 @@ export const NOMBRE_ESTADO: Record<Estado, string> = {
   CRITICO: 'Estado Crítico',
 };
 
-export const LED: Record<Estado, { nombre: string; color: string }> = {
-  NORMAL: { nombre: 'Verde', color: '#2ecc71' },
-  ADV_HIDRICA: { nombre: 'Amarillo', color: '#f1c40f' },
-  ADV_TERMICA: { nombre: 'Ámbar', color: '#e67e22' },
-  CRITICO: { nombre: 'Rojo', color: '#e74c3c' },
+/* ---------- SALIDA: patrones perceptibles por nivel de severidad -------
+   La advertencia térmica y el estado crítico comparten el color rojo del
+   documento y se distinguen por el PATRÓN, no por el color: el registro
+   guarda el estado y esta capa lo decodifica desde S₁S₀.                  */
+export type PatronAlarma = 'silencio' | 'pulsos' | 'continuo';
+
+export const PRESENTACION: Record<
+  Estado,
+  {
+    color: string; // color del LED
+    patronLED: string; // etiqueta completa para el HUD
+    patronCorto: string; // etiqueta breve para la matriz de pruebas
+    parpadea: boolean; // intermitencia de 2 Hz
+    patronAlarma: PatronAlarma;
+  }
+> = {
+  NORMAL: { color: '#2ecc71', patronLED: 'Verde fijo', patronCorto: 'Verde', parpadea: false, patronAlarma: 'silencio' },
+  ADV_HIDRICA: { color: '#f1c40f', patronLED: 'Amarillo fijo', patronCorto: 'Amarillo', parpadea: false, patronAlarma: 'silencio' },
+  ADV_TERMICA: { color: '#e74c3c', patronLED: 'Rojo intermitente', patronCorto: 'Rojo int.', parpadea: true, patronAlarma: 'pulsos' },
+  CRITICO: { color: '#e74c3c', patronLED: 'Rojo fijo', patronCorto: 'Rojo fijo', parpadea: false, patronAlarma: 'continuo' },
 };
+
+export const TEXTO_ALARMA: Record<PatronAlarma, string> = {
+  silencio: 'Silencio',
+  pulsos: 'Pulsos intermitentes',
+  continuo: 'Tono continuo',
+};
+
+/* Parpadeo de 2 Hz: 250 ms encendido y 250 ms apagado. */
+export const PERIODO_PARPADEO_MS = 500;
+
+// Fase del parpadeo. La comparten el canvas y el panel para que el LED del
+// invernadero y el del HUD nunca se vean uno encendido y el otro apagado.
+export function ledEncendido(estado: Estado, ahoraMs: number): boolean {
+  if (!PRESENTACION[estado].parpadea) return true;
+  return Math.floor(ahoraMs / (PERIODO_PARPADEO_MS / 2)) % 2 === 0;
+}
 
 /* ---------- Utilidad interna: dejar el valor como entero 0..255 -------- */
 function aByte(numeroEntero: number): number {
@@ -145,7 +176,11 @@ export function evaluarEstadoSistema(
   // 2) Ecuaciones de salida
   const bombaAgua = B; // Y_B = B
   const ventiladores = A; // Y_V = A
-  const alarmaSonora = (A & B) as Bit; // Y_A = A · B (solo estado crítico)
+  // Y_A = A: riesgo térmico directo. Por encima del umbral, en una estructura
+  // cerrada el cultivo sufre en lapsos breves aunque el suelo esté húmedo, así
+  // que la sirena acompaña a toda advertencia térmica (lo que distingue a la
+  // advertencia del estado crítico es el patrón, no la activación).
+  const alarmaSonora = A;
   const severidad = ((A << 1) | B) as Severidad; // S₁ = A, S₀ = B
 
   // 3) Carga de REG_ACT: reinicio, máscaras OR y severidad desplazada 3 bits
