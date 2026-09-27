@@ -4,6 +4,8 @@ import type { Estado } from '../logica';
 import type { Jugador } from './colision';
 import { caminoRR } from './dibujo';
 
+import mcHdUrl from '../assets/MC_HD.png';
+
 // pensamientos del operador según el estado del sistema
 // (la alarma solo suena en CRITICO: no mencionarla en los demás estados)
 export const FRASES: Record<Estado, string[]> = {
@@ -19,156 +21,84 @@ export function fraseActual(estado: Estado, frame: number): string {
   return frases[Math.floor(frame / 130) % frases.length];
 }
 
-// operador con animación de caminata
+// CONFIGURACIONES PERSONAJE
+const FILA_ABAJO = 0;
+const FILA_IZQUIERDA = 1;
+const FILA_DERECHA = 2;
+const FILA_ARRIBA = 3;
+
+const POSICION_Y_SPRITE: Record<number, number> = {
+  [FILA_ABAJO]: -50,
+  [FILA_IZQUIERDA]: 600,
+  [FILA_DERECHA]: 1220,
+  [FILA_ARRIBA]: 1850,
+};
+
+const SECUENCIA_CAMINATA = [0, 1, 2, 1];
+
+let spriteCargado = false;
+let frameAncho = 420;
+let frameAlto = 560;
+
+const spriteJugador = new Image();
+spriteJugador.src = mcHdUrl;
+spriteJugador.onload = () => {
+  spriteCargado = true;
+  frameAncho = spriteJugador.width / 3;
+  frameAlto = spriteJugador.height / 4;
+};
+
 export function dibujarJugador(ctx: CanvasRenderingContext2D, jugador: Jugador, frame: number) {
   const px = jugador.x;
   const py = jugador.y;
-  const mov = jugador.moviendo;
-  const f = jugador.fase;
-  const sw = mov ? Math.sin(f) : 0; // balanceo de brazos/piernas
-  const bob = mov ? Math.abs(Math.sin(f)) * 1.8 : Math.sin(frame * 0.05) * 0.6;
 
-  const footY = py;
-  const hipY = py - 13;
-  const shoulderY = py - 26 - bob * 0.5;
-  const headY = py - 36 - bob * 0.6;
-
-  const PIEL = '#f0c8a4';
-  const PIEL_S = '#d9ae86';
-  const PELO = '#553824';
-  const CAMISA = '#3f7d5a';
-  const CAMISA_S = '#2f5f45';
-  const PANT = '#3b4a63';
-  const BOTA = '#4a3320';
-  const PAJA = '#dcb75f';
-  const PAJA_S = '#b88f42';
-
-  // sombra
+  // Sombra proyectada en los pies
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath();
-  ctx.ellipse(px, footY, 12, 4.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(px, py, 12, 4.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // dibuja una extremidad como línea gruesa redondeada
-  const capsula = (x1: number, y1: number, x2: number, y2: number, w: number, color: string) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = w;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  };
+  if (spriteCargado) {
+    // Mapeo de dirección a fila del sprite
+    let dirFila = FILA_ABAJO;
+    if (jugador.dir === 'arriba') dirFila = FILA_ARRIBA;
+    else if (jugador.dir === 'abajo') dirFila = FILA_ABAJO;
+    else if (jugador.dir === 'izq') dirFila = FILA_IZQUIERDA;
+    else if (jugador.dir === 'der') dirFila = FILA_DERECHA;
 
-  if (jugador.dir === 'izq' || jugador.dir === 'der') {
-    const fl = jugador.dir === 'izq' ? -1 : 1;
-    capsula(px - 2 * fl, hipY, px - 3 * fl - sw * 5 * fl, footY, 6, PANT); // pierna trasera
-    capsula(px, shoulderY + 2, px - 2 * fl - sw * 6 * fl, shoulderY + 13, 5, CAMISA_S); // brazo trasero
-    ctx.fillStyle = CAMISA; // torso
-    caminoRR(ctx, px - 7, shoulderY, 14, hipY - shoulderY + 3, 5);
-    ctx.fill();
-    capsula(px + 2 * fl, hipY, px + 3 * fl + sw * 5 * fl, footY, 6, PANT); // pierna delantera
-    ctx.fillStyle = BOTA;
-    ctx.beginPath();
-    ctx.ellipse(px + 3 * fl + sw * 5 * fl + fl, footY, 4, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    capsula(px, shoulderY + 2, px + 3 * fl + sw * 6 * fl, shoulderY + 13, 5, CAMISA); // brazo delantero
-    ctx.fillStyle = PIEL;
-    ctx.beginPath();
-    ctx.arc(px + 3 * fl + sw * 6 * fl, shoulderY + 14, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = PIEL; // cabeza
-    ctx.beginPath();
-    ctx.arc(px + fl, headY, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = PELO;
-    ctx.beginPath();
-    ctx.arc(px + fl, headY - 2, 7, Math.PI * 0.9, Math.PI * 2.1);
-    ctx.fill();
-    ctx.fillStyle = '#2b2b2b'; // ojo
-    ctx.beginPath();
-    ctx.arc(px + 4 * fl, headY - 1, 1.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = PIEL_S; // nariz
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(px + 6 * fl, headY);
-    ctx.lineTo(px + 7.5 * fl, headY + 1.5);
-    ctx.stroke();
-    ctx.fillStyle = PAJA; // sombrero
-    ctx.beginPath();
-    ctx.ellipse(px + fl, headY - 4, 11, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = PAJA_S;
-    ctx.beginPath();
-    ctx.ellipse(px + fl, headY - 5, 6, 4.5, 0, Math.PI, Math.PI * 2);
-    ctx.fill();
+    // Aumentamos la velocidad del intercambio de fotogramas si corre (cada 4 frames en lugar de 8)
+    const velocidadAnim = jugador.esSprinting ? 4 : 8;
+    const indiceAnimacion = jugador.moviendo
+      ? Math.floor(frame / velocidadAnim) % SECUENCIA_CAMINATA.length
+      : 1; // Cuadro estático de pie
+
+    const columnaActual = SECUENCIA_CAMINATA[indiceAnimacion];
+    const sx = columnaActual * frameAncho;
+    const sy = POSICION_Y_SPRITE[dirFila];
+
+    // Escala y renderizado
+    const tamano = 35;
+    const proporcion = frameAlto / frameAncho;
+    const anchoSprite = tamano * 1.25;
+    const altoSprite = anchoSprite * proporcion;
+    const spriteX = px - anchoSprite / 2;
+    const spriteY = py - altoSprite + 4; // Apoya los pies sobre la sombra
+
+    ctx.drawImage(
+      spriteJugador,
+      sx,
+      sy,
+      frameAncho,
+      frameAlto,
+      spriteX,
+      spriteY,
+      anchoSprite,
+      altoSprite,
+    );
   } else {
-    const atras = jugador.dir === 'arriba';
-    capsula(px - 4, hipY, px - 4 + sw * 4, footY, 6, PANT); // piernas
-    capsula(px + 4, hipY, px + 4 - sw * 4, footY, 6, PANT);
-    ctx.fillStyle = BOTA;
-    ctx.beginPath();
-    ctx.ellipse(px - 4 + sw * 4, footY, 4, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(px + 4 - sw * 4, footY, 4, 2.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = CAMISA; // torso
-    caminoRR(ctx, px - 9, shoulderY, 18, hipY - shoulderY + 3, 5);
-    ctx.fill();
-    ctx.fillStyle = CAMISA_S;
-    caminoRR(ctx, px + 3, shoulderY, 6, hipY - shoulderY + 3, 3);
-    ctx.fill();
-    capsula(px - 9, shoulderY + 1, px - 10 - sw * 4, shoulderY + 13, 5, CAMISA); // brazos
-    capsula(px + 9, shoulderY + 1, px + 10 + sw * 4, shoulderY + 13, 5, CAMISA);
-    ctx.fillStyle = PIEL;
-    ctx.beginPath();
-    ctx.arc(px - 10 - sw * 4, shoulderY + 14, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(px + 10 + sw * 4, shoulderY + 14, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    if (atras) {
-      ctx.fillStyle = '#8a6b47'; // mochila
-      caminoRR(ctx, px - 7, shoulderY + 2, 14, 12, 3);
-      ctx.fill();
-    }
-    ctx.fillStyle = PIEL; // cabeza
-    ctx.beginPath();
-    ctx.arc(px, headY, 7, 0, Math.PI * 2);
-    ctx.fill();
-    if (atras) {
-      ctx.fillStyle = PELO;
-      ctx.beginPath();
-      ctx.arc(px, headY, 7, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.fillStyle = PELO;
-      ctx.beginPath();
-      ctx.arc(px, headY - 2, 7, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#2b2b2b'; // ojos
-      ctx.beginPath();
-      ctx.arc(px - 2.6, headY, 1.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(px + 2.6, headY, 1.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = PIEL_S; // sonrisa
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(px, headY + 2, 2, Math.PI * 0.15, Math.PI * 0.85);
-      ctx.stroke();
-    }
-    ctx.fillStyle = PAJA; // sombrero de paja
-    ctx.beginPath();
-    ctx.ellipse(px, headY - 4, 12, 4.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = PAJA_S;
-    ctx.beginPath();
-    ctx.ellipse(px, headY - 6, 6.5, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Fallback visible si la imagen aún no ha cargado
+    ctx.fillStyle = '#ff9800';
+    ctx.fillRect(px - 10, py - 30, 20, 30);
   }
 }
 
@@ -182,32 +112,37 @@ export function dibujarPensamiento(
 ) {
   ctx.font = '12px system-ui, sans-serif';
   const pad = 12;
-  const w = Math.min(230, Math.max(90, ctx.measureText(texto).width + pad * 2));
+  const w = Math.min(240, Math.max(100, ctx.measureText(texto).width + pad * 2));
   const h = 34;
+
+  // Eleva el globo por encima del personaje (~90px arriba para no taparlo)
+  const by = py - 90;
   let bx = px - w / 2;
-  const by = py - 78;
   bx = Math.min(Math.max(bx, 6), canvasWidth - w - 6);
 
-  ctx.fillStyle = 'rgba(255,255,255,0.94)';
+  // Cuerpo principal del globo
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.strokeStyle = 'rgba(60,70,80,0.55)';
   ctx.lineWidth = 1.5;
   caminoRR(ctx, bx, by, w, h, h / 2);
   ctx.fill();
   ctx.stroke();
 
-  // colita de circulitos hacia la cabeza del operador
+  // Burbujas desde la cabeza hasta el globo
   const burbujas: [number, number, number][] = [
-    [px - 5, by + h + 4, 5],
-    [px - 10, by + h + 13, 3],
+    [px, py - 46, 3],
+    [px, py - 52, 4.5],
   ];
+
   for (const [cx, cy, r] of burbujas) {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.fill();
     ctx.stroke();
   }
 
+  // Texto centrado dentro del globo
   ctx.fillStyle = '#20303a';
   ctx.textAlign = 'center';
   ctx.fillText(texto, bx + w / 2, by + h / 2 + 4);

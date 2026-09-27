@@ -11,10 +11,19 @@ export type Jugador = {
   dir: Direccion;
   fase: number;
   moviendo: boolean;
+  esSprinting: boolean;
 };
 
 export function crearJugador(): Jugador {
-  return { x: 0, y: 0, listo: false, dir: 'abajo', fase: 0, moviendo: false };
+  return {
+    x: 0,
+    y: 0,
+    listo: false,
+    dir: 'abajo',
+    fase: 0,
+    moviendo: false,
+    esSprinting: false,
+  };
 }
 
 /* posición de los 3 invernaderos, en función del tamaño del canvas */
@@ -29,10 +38,13 @@ export function posicionesInvernaderos(width: number, height: number): Invernade
 // Caja sólida de cada invernadero (algo más angosta que el sprite, W=130 H=92).
 export function chocaConInvernadero(px: number, py: number, invernaderos: Invernadero[]): boolean {
   for (const g of invernaderos) {
-    const left = g.x - 65 + 10;
-    const right = g.x + 65 - 10;
-    const top = g.y - 46 - 4;
-    const bottom = g.y + 46 - 2;
+    // El ancho total visual es W = 130 (de g.x - 65 a g.x + 65).
+    // Extendemos la colisión horizontal para proteger los laterales y las esquinas del marco.
+    const left = g.x - 65 - 17.5;   // Pared izquierda exterior
+    const right = g.x + 65 + 17.5;  // Pared derecha exterior
+    const top = g.y - 35;        // Límite trasero
+    const bottom = g.y + 46 + 4; // Límite frontal / base inferior
+
     if (px > left && px < right && py > top && py < bottom) return true;
   }
   return false;
@@ -68,27 +80,55 @@ export function moverJugador(
   height: number,
   invernaderos: Invernadero[],
 ) {
-  const v = 1.8;
-  let dx = 0;
-  let dy = 0;
-  if (teclas.has('arrowup') || teclas.has('w')) dy -= v;
-  if (teclas.has('arrowdown') || teclas.has('s')) dy += v;
-  if (teclas.has('arrowleft') || teclas.has('a')) dx -= v;
-  if (teclas.has('arrowright') || teclas.has('d')) dx += v;
-  if (dx !== 0 && dy !== 0) {
-    dx *= 0.7071; // diagonal a la misma velocidad
-    dy *= 0.7071;
+  jugador.esSprinting = teclas.has('shift');
+  // Factor de velocidad base (1.8 para caminar, 3.6 para correr con Shift)
+  const velocidadActual = jugador.esSprinting ? 3.6 : 1.8;
+
+  let deltaX = 0;
+  let deltaY = 0;
+
+  if (teclas.has('arrowup') || teclas.has('w')) deltaY -= velocidadActual;
+  if (teclas.has('arrowdown') || teclas.has('s')) deltaY += velocidadActual;
+  if (teclas.has('arrowleft') || teclas.has('a')) deltaX -= velocidadActual;
+  if (teclas.has('arrowright') || teclas.has('d')) deltaX += velocidadActual;
+
+  if (deltaX !== 0 && deltaY !== 0) {
+    deltaX *= 0.7071; // Mantiene velocidad constante en diagonal
+    deltaY *= 0.7071;
   }
 
-  jugador.moviendo = dx !== 0 || dy !== 0;
+  jugador.moviendo = deltaX !== 0 || deltaY !== 0;
+
   if (jugador.moviendo) {
-    jugador.fase += 0.28; // avanza el ciclo de caminata
-    if (Math.abs(dx) >= Math.abs(dy)) jugador.dir = dx < 0 ? 'izq' : 'der';
-    else jugador.dir = dy < 0 ? 'arriba' : 'abajo';
+    jugador.fase += jugador.esSprinting ? 0.45 : 0.22;
+
+    if (Math.abs(deltaX) >= Math.abs(deltaY)) jugador.dir = deltaX < 0 ? 'izq' : 'der';
+    else jugador.dir = deltaY < 0 ? 'arriba' : 'abajo';
   }
 
-  const nx = Math.max(20, Math.min(width - 20, jugador.x + dx));
-  const ny = Math.max(40, Math.min(height - 12, jugador.y + dy));
-  if (!esSolido(nx, jugador.y, width, height, invernaderos)) jugador.x = nx;
-  if (!esSolido(jugador.x, ny, width, height, invernaderos)) jugador.y = ny;
+  // --- RESOLUCIÓN PIXEL POR PIXEL EN EJE X ---
+  const pasoX = Math.sign(deltaX);
+  const totalPasosX = Math.abs(deltaX);
+  for (let i = 0; i < totalPasosX; i += 1) {
+    const distanciaRestante = Math.min(1, totalPasosX - i);
+    const probandoX = Math.max(20, Math.min(width - 20, jugador.x + pasoX * distanciaRestante));
+    if (!esSolido(probandoX, jugador.y, width, height, invernaderos)) {
+      jugador.x = probandoX;
+    } else {
+      break; // Chocó con la pared en X, se detiene exactamente en el borde
+    }
+  }
+
+  // --- RESOLUCIÓN PIXEL POR PIXEL EN EJE Y ---
+  const pasoY = Math.sign(deltaY);
+  const totalPasosY = Math.abs(deltaY);
+  for (let i = 0; i < totalPasosY; i += 1) {
+    const distanciaRestante = Math.min(1, totalPasosY - i);
+    const probandoY = Math.max(40, Math.min(height - 12, jugador.y + pasoY * distanciaRestante));
+    if (!esSolido(jugador.x, probandoY, width, height, invernaderos)) {
+      jugador.y = probandoY;
+    } else {
+      break; // Chocó con la pared en Y, se detiene exactamente en el borde
+    }
+  }
 }

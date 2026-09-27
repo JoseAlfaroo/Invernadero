@@ -115,13 +115,24 @@ export function crearEscenario(ctx: CanvasRenderingContext2D) {
   ];
 
   const arboles: { fx: number; fy: number; e: number }[] = [
+    // Parcela Superior Izquierda
     { fx: 0.05, fy: 0.1, e: 1.1 },
+    { fx: 0.44, fy: 0.08, e: 0.95 },
+    { fx: 0.06, fy: 0.44, e: 1.0 },
+
+    // Parcela Superior Derecha
     { fx: 0.94, fy: 0.08, e: 1.2 },
-    { fx: 0.965, fy: 0.52, e: 1.0 },
-    { fx: 0.035, fy: 0.55, e: 0.95 },
-    { fx: 0.9, fy: 0.92, e: 1.15 },
-    { fx: 0.5, fy: 0.045, e: 0.9 },
-    { fx: 0.19, fy: 0.94, e: 1.0 },
+    { fx: 0.54, fy: 0.07, e: 0.9 },
+    { fx: 0.93, fy: 0.42, e: 1.05 },
+
+    // Parcela Inferior Izquierda (alrededor de la laguna)
+    { fx: 0.04, fy: 0.68, e: 1.1 },
+    { fx: 0.22, fy: 0.92, e: 0.95 },
+
+    // Parcela Inferior Derecha
+    { fx: 0.88, fy: 0.88, e: 1.15 },
+    { fx: 0.95, fy: 0.65, e: 1.0 },
+    { fx: 0.56, fy: 0.91, e: 0.9 },
   ];
 
   // suelo: imagen o césped + caminos
